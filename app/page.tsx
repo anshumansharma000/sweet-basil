@@ -499,7 +499,7 @@ const GlitchOverlay: React.FC<{ show: boolean; onDone: () => void }> = ({
       >
         <div className="text-center">
           <img
-            src="/brand/sweetbasil.png"
+            src="/sweetbasi.png"
             alt="Sweet Basil"
             className="h-9 w-auto mx-auto mb-4"
           />
@@ -562,7 +562,7 @@ export default function Page() {
         <div className="max-w-5xl mx-auto px-4 sm:px-6 md:px-8 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <img
-              src="/brand/sweetbasil.png"
+              src="/sweetbasil.png"
               alt="Sweet Basil"
               className="h-7 w-auto"
             />
@@ -614,7 +614,7 @@ export default function Page() {
             intolerances, please inform our team.
           </p>
           <img
-            src="/brand/lyfe.png"
+            src="/lyfe.png"
             alt="LYFE Hotels"
             className="h-6 w-auto opacity-80"
           />
