@@ -25,6 +25,7 @@ type Screen =
   | { kind: "curry" }
   | { kind: "findRed" }
   | { kind: "fortune" }
+  | { kind: "crack" } // NEW
   | { kind: "shiny" }
   | { kind: "ending" };
 
@@ -41,6 +42,7 @@ const FLOW_STEPS: Array<{ id: string; label: string }> = [
   { id: "bbi", label: "BBI" },
   { id: "duck", label: "Cricket" },
   { id: "fortune", label: "Fortune" },
+  { id: "crack", label: "Crack" }, // NEW
   { id: "shiny", label: "Shiny" },
   { id: "ending", label: "Finish" },
 ];
@@ -89,8 +91,7 @@ const FACTS: Record<string, Record<string, string>> = {
     Lebanon: "Capital: Beirut. Mezze like hummus and tabbouleh are classics.",
   },
   jamshedpur: {
-    "Steel City":
-      "Jamshedpur is home to Tata Steel, India’s first steel plant.",
+    "Steel City": "Also called Tatanagar; known for its steel legacy.",
   },
   bbi: {
     "BBI–BKK (Bangkok)":
@@ -103,7 +104,7 @@ const FACTS: Record<string, Record<string, string>> = {
       "KUL is the gateway to Malaysia’s vibrant food scene.",
   },
   duck: {
-    "Golden Duck or Yellow Duck": "Out on the very first ball faced.",
+    "Golden Duck": "Out on the very first ball faced.",
   },
 };
 
@@ -118,22 +119,29 @@ export default function ChallengePage() {
 
   const [step, setStep] = useState<Screen>({ kind: "welcome" });
 
-  // Toast state (+ tone & duration)
+  // Toast + UI lock
   const [toast, setToast] = useState<string>("");
   const [toastTone, setToastTone] = useState<"default" | "success" | "error">(
     "default"
   );
   const [toastDuration, setToastDuration] = useState<number>(2400);
+  const [uiLocked, setUiLocked] = useState(false);
 
-  // helper to show any toast
+  // helper to show toast INSIDE main + lock UI while visible
   const showToast = (
     message: string,
     tone: "default" | "success" | "error" = "default",
-    duration = 2400
+    duration = 2400,
+    after?: () => void
   ) => {
     setToastTone(tone);
     setToastDuration(duration);
     setToast(message);
+    setUiLocked(true);
+    window.setTimeout(() => {
+      setUiLocked(false);
+      after?.();
+    }, duration);
   };
 
   // On correct, show green toast (5s) then advance
@@ -144,17 +152,14 @@ export default function ChallengePage() {
     custom?: string;
   }) => {
     const { explanation, stepId, selectedLabel, custom } = opts;
-    const msg =
+    let msg =
+      explanation?.trim() ||
       custom?.trim() ||
       (stepId && selectedLabel && FACTS[stepId]?.[selectedLabel]) ||
       (selectedLabel
         ? `Excellent choice! ${selectedLabel}.`
         : "Excellent choice!");
-
-    showToast(msg, "success", 4000);
-    setTimeout(() => {
-      goNext();
-    }, 4000);
+    showToast(msg, "success", 2400, () => goNext());
   };
 
   // Audio
@@ -167,7 +172,7 @@ export default function ChallengePage() {
   useEffect(() => {
     if (step.kind === "shiny") {
       setShowControls(false);
-      setShowFoundBtn(false); // hide button when entering shiny
+      setShowFoundBtn(false);
 
       const playTimer = setTimeout(() => {
         if (armed.current) {
@@ -179,8 +184,6 @@ export default function ChallengePage() {
       }, 5000);
 
       const controlsTimer = setTimeout(() => setShowControls(true), 7000);
-
-      // show “I found it” after 15s
       const foundBtnTimer = setTimeout(() => setShowFoundBtn(true), 15000);
 
       return () => {
@@ -214,7 +217,7 @@ export default function ChallengePage() {
 
   // Flow
   const goNext = () => {
-    setToast(""); // clear any prior toast as we move on
+    setToast("");
     setStep((prev) => {
       switch (prev.kind) {
         case "welcome":
@@ -244,7 +247,7 @@ export default function ChallengePage() {
               kind: "choice",
               id: "jamshedpur",
               prompt:
-                "Lyfe Hotels is expanding base in Jamshedpur, with the first steps laid on the 24th August. Just like Bhubaneswar is known as the 'Temple City' for its vibrant temples, Jamshedpur is famously known as ...",
+                "Lyfe Hotels is expanding base in Jamshedpur, with the first steps laid on the 24th August. Just like Bhubaneswar is known as the 'Temple City' for its vibrant temples, Jamshedpur is famously known as the _____.",
               choices: [
                 { key: "a", label: "Iron City" },
                 { key: "b", label: "Steel City", correct: true },
@@ -277,7 +280,6 @@ export default function ChallengePage() {
         case "curry":
           return { kind: "findRed" };
         case "findRed":
-          // BBI (any answer is fine)
           return {
             kind: "choice",
             id: "bbi",
@@ -291,9 +293,11 @@ export default function ChallengePage() {
             ],
           };
         case "fortune":
-          // Arm autoplay before shiny
+          // Arm before shiny, even with crack step between
           armed.current = true;
-          return { kind: "shiny" };
+          return { kind: "crack" }; // NEW step after fortune
+        case "crack":
+          return { kind: "shiny" }; // proceed to shiny after unlocking
         case "shiny":
           return { kind: "ending" };
         default:
@@ -329,7 +333,7 @@ export default function ChallengePage() {
       </header>
 
       {/* Body */}
-      <main className="max-w-2xl mx-auto px-6 py-12 flex-1">
+      <main className="max-w-2xl mx-auto px-6 py-12 flex-1 relative">
         <Stepper index={stepIndexFor(step)} />
 
         <AnimatePresence mode="wait">
@@ -339,7 +343,9 @@ export default function ChallengePage() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.3 }}
-            className="rounded-2xl ring-1 ring-slate-200 p-8"
+            className={`rounded-2xl ring-1 ring-slate-200 p-8 ${
+              uiLocked ? "pointer-events-none" : ""
+            }`}
             style={{
               background:
                 "linear-gradient(180deg, rgba(255,255,255,0.95), #fff)",
@@ -358,7 +364,7 @@ export default function ChallengePage() {
                 <p className="mt-3 text-slate-600">
                   Answer a few fun questions to unlock your reward. Ready?
                 </p>
-                <Primary className="mt-6" onClick={goNext}>
+                <Primary className="mt-6" onClick={goNext} disabled={uiLocked}>
                   Start
                 </Primary>
               </div>
@@ -373,8 +379,12 @@ export default function ChallengePage() {
                   Have you visited Sweet Basil before?
                 </h2>
                 <div className="mt-6 flex gap-3 justify-center">
-                  <Button onClick={goNext}>Yes</Button>
-                  <Button onClick={goNext}>No</Button>
+                  <Button onClick={goNext} disabled={uiLocked}>
+                    Yes
+                  </Button>
+                  <Button onClick={goNext} disabled={uiLocked}>
+                    No
+                  </Button>
                 </div>
               </div>
             )}
@@ -394,29 +404,32 @@ export default function ChallengePage() {
                   <label className="grid gap-1 text-sm">
                     <span className="text-slate-600">Name</span>
                     <input
-                      className="input p-1 border rounded"
+                      className="input p-2 border rounded"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       placeholder="Your name"
+                      disabled={uiLocked}
                     />
                   </label>
                   <label className="grid gap-1 text-sm">
                     <span className="text-slate-600">Phone</span>
                     <input
-                      className="input p-1 border rounded"
+                      className="input p-2 border rounded"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
                       placeholder="Phone number"
                       inputMode="tel"
+                      disabled={uiLocked}
                     />
                   </label>
                   <label className="grid gap-1 text-sm">
                     <span className="text-slate-600">Birthday</span>
                     <input
-                      className="input p-1 border rounded"
+                      className="input p-2 border rounded"
                       value={birthday}
                       onChange={(e) => setBirthday(e.target.value)}
                       type="date"
+                      disabled={uiLocked}
                     />
                   </label>
                 </div>
@@ -429,6 +442,7 @@ export default function ChallengePage() {
                     }
                     goNext();
                   }}
+                  disabled={uiLocked}
                 >
                   Continue
                 </Primary>
@@ -445,12 +459,17 @@ export default function ChallengePage() {
                 </h2>
                 <div className="mt-6 grid gap-3">
                   <input
-                    className="input p-1 border rounded"
+                    className="input p-2 border rounded"
                     value={favorite}
                     onChange={(e) => setFavorite(e.target.value)}
                     placeholder="Your favorite dish"
+                    disabled={uiLocked}
                   />
-                  <Primary className="mt-2" onClick={goNext}>
+                  <Primary
+                    className="mt-2"
+                    onClick={goNext}
+                    disabled={uiLocked}
+                  >
                     Continue
                   </Primary>
                 </div>
@@ -459,6 +478,7 @@ export default function ChallengePage() {
 
             {step.kind === "riddle" && (
               <RiddleCard
+                uiLocked={uiLocked}
                 onCorrect={(msg) => handleCorrect({ custom: msg })}
                 onWrong={() => showToast("Hint: Think of a weekday")}
               />
@@ -466,6 +486,8 @@ export default function ChallengePage() {
 
             {step.kind === "choice" && (
               <ChoiceCard
+                uiLocked={uiLocked}
+                accent={ACCENT}
                 prompt={step.prompt}
                 choices={step.choices}
                 explanation={step.explanation}
@@ -476,7 +498,9 @@ export default function ChallengePage() {
                     selectedLabel: selected.label,
                   })
                 }
-                onWrong={() => showToast("Not quite — try another option.")}
+                onWrong={() =>
+                  showToast("Not quite — try another option.", "error")
+                }
               />
             )}
 
@@ -486,17 +510,22 @@ export default function ChallengePage() {
                   className="text-2xl md:text-3xl font-semibold"
                   style={{ color: ACCENT }}
                 >
-                  Which Thai curry is your favorite?
+                  Which flavor of Thai curry is your favorite?
                 </h2>
                 <div className="mt-6 grid grid-cols-2 gap-3">
-                  <Button onClick={goNext}>🔴 Red Curry</Button>
-                  <Button onClick={goNext}>🟢 Green Curry</Button>
+                  <Button onClick={goNext} disabled={uiLocked}>
+                    🔴 Red Curry
+                  </Button>
+                  <Button onClick={goNext} disabled={uiLocked}>
+                    🟢 Green Curry
+                  </Button>
                 </div>
               </div>
             )}
 
             {step.kind === "findRed" && (
               <FindRedCard
+                uiLocked={uiLocked}
                 onCorrect={(msg) => handleCorrect({ custom: msg })}
                 onWrong={() =>
                   showToast("Hint: object with 4 letters that lights up")
@@ -510,6 +539,22 @@ export default function ChallengePage() {
                   "Your future seems bright… but the immediate future is even brighter."
                 }
                 onDone={goNext}
+                uiLocked={uiLocked}
+              />
+            )}
+
+            {step.kind === "crack" && (
+              <CrackSafeCard
+                uiLocked={uiLocked}
+                onUnlock={() =>
+                  showToast(
+                    "Safe unlocked! 🎉 Proceeding…",
+                    "success",
+                    2400,
+                    goNext
+                  )
+                }
+                onWrong={() => showToast("Incorrect code. Try again.", "error")}
               />
             )}
 
@@ -525,7 +570,6 @@ export default function ChallengePage() {
                   Look around your table for something <b>shiny</b> ✨
                 </p>
 
-                {/* Single audio element used for autoplay and for visible controls */}
                 <audio
                   ref={audio}
                   preload="auto"
@@ -543,13 +587,23 @@ export default function ChallengePage() {
 
                 {showControls && (
                   <div className="mt-4 flex items-center justify-center gap-2">
-                    <Button onClick={playAudio}>▶ Play</Button>
-                    <Button onClick={pauseAudio}>⏸ Pause</Button>
-                    <Button onClick={stopAudio}>⏹ Stop</Button>
+                    <Button onClick={playAudio} disabled={uiLocked}>
+                      ▶ Play
+                    </Button>
+                    <Button onClick={pauseAudio} disabled={uiLocked}>
+                      ⏸ Pause
+                    </Button>
+                    <Button onClick={stopAudio} disabled={uiLocked}>
+                      ⏹ Stop
+                    </Button>
                   </div>
                 )}
                 {showFoundBtn ? (
-                  <Primary className="mt-6" onClick={goNext}>
+                  <Primary
+                    className="mt-6"
+                    onClick={goNext}
+                    disabled={uiLocked}
+                  >
                     I found it
                   </Primary>
                 ) : (
@@ -574,6 +628,7 @@ export default function ChallengePage() {
                 <Button
                   className="mt-6"
                   onClick={() => (window.location.href = "/challenge")}
+                  disabled={uiLocked}
                 >
                   Back to Menu
                 </Button>
@@ -582,6 +637,7 @@ export default function ChallengePage() {
           </motion.div>
         </AnimatePresence>
 
+        {/* Toast sits INSIDE main */}
         <Toast
           message={toast}
           tone={toastTone}
@@ -629,7 +685,7 @@ function Footer() {
           <div className="font-medium" style={{ color: "white" }}>
             Sweet Basil
           </div>
-          <div className="opacity-70 text-white">LYFE Lotels</div>
+          <div className="opacity-70 text-white">LYFE Hotels</div>
           <div className="opacity-70 text-white">Open daily · 12:00–23:00</div>
         </div>
 
@@ -654,26 +710,26 @@ function Footer() {
   );
 }
 
-/* ────────────────────────────────────────────────────────────────────────────
- * Buttons (kept as tiny components so we don't repeat utility classes)
- * ──────────────────────────────────────────────────────────────────────────── */
+/* Buttons */
 function Button(props: React.ButtonHTMLAttributes<HTMLButtonElement>) {
+  const { className, ...rest } = props;
   return (
     <button
-      {...props}
-      className={`px-4 py-2 rounded-lg border border-slate-300 text-sm transition hover:border-slate-400 hover:-translate-y-px active:translate-y-0 focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-        props.className ?? ""
+      {...rest}
+      className={`px-4 py-2 rounded-lg border border-slate-300 text-sm transition hover:border-slate-400 hover:-translate-y-px active:translate-y-0 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed ${
+        className ?? ""
       }`}
       style={{ boxShadow: "0 1px 0 rgba(0,0,0,0.02)" }}
     />
   );
 }
 function Primary(props: React.ButtonHTMLAttributes<HTMLButtonElement>) {
+  const { className, ...rest } = props;
   return (
     <button
-      {...props}
-      className={`px-4 py-2 rounded-lg text-white text-sm transition hover:brightness-95 hover:-translate-y-px active:translate-y-0 focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-        props.className ?? ""
+      {...rest}
+      className={`px-4 py-2 rounded-lg text-white text-sm transition hover:brightness-95 hover:-translate-y-px active:translate-y-0 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed ${
+        className ?? ""
       }`}
       style={{
         backgroundColor: ACCENT,
@@ -692,14 +748,40 @@ function ChoiceCard({
   explanation,
   onCorrect,
   onWrong,
+  uiLocked,
+  accent,
 }: {
   prompt: string;
   choices: Choice[];
   explanation?: string;
   onCorrect: (selected: Choice) => void;
   onWrong: () => void;
+  uiLocked: boolean;
+  accent: string;
 }) {
   const hasKeyedCorrect = choices.some((c) => c.correct);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [result, setResult] = useState<"correct" | "wrong" | null>(null);
+
+  const handleClick = (c: Choice) => {
+    if (uiLocked) return;
+    if (!hasKeyedCorrect) {
+      setSelected(c.key);
+      setResult("correct");
+      onCorrect(c);
+      return;
+    }
+    if (c.correct) {
+      setSelected(c.key);
+      setResult("correct");
+      onCorrect(c);
+    } else {
+      setSelected(c.key);
+      setResult("wrong");
+      onWrong();
+    }
+  };
+
   return (
     <div className="text-center">
       <h2
@@ -710,24 +792,38 @@ function ChoiceCard({
       </h2>
       <p className="mt-3 text-slate-600 text-center">{prompt}</p>
       <div className="mt-6 grid sm:grid-cols-2 gap-3">
-        {choices.map((c) => (
-          <Button
-            key={c.key}
-            onClick={() =>
-              hasKeyedCorrect
-                ? c.correct
-                  ? onCorrect(c)
-                  : onWrong()
-                : onCorrect(c)
-            }
-          >
-            {c.label}
-          </Button>
-        ))}
+        {choices.map((c) => {
+          const isSel = selected === c.key;
+          const isCorrect = result === "correct" && isSel;
+          const isWrong = result === "wrong" && isSel;
+
+          const correctStyles = `text-white border-transparent`;
+          const wrongStyles = `bg-slate-100 text-slate-500 border-slate-300`;
+          const base =
+            "px-4 py-2 rounded-lg border text-sm transition hover:border-slate-400 hover:-translate-y-px active:translate-y-0 focus:outline-none focus:ring-2 focus:ring-offset-2";
+
+          return (
+            <button
+              key={c.key}
+              disabled={uiLocked}
+              onClick={() => handleClick(c)}
+              className={`${base} ${
+                isCorrect
+                  ? correctStyles
+                  : isWrong
+                  ? wrongStyles
+                  : "border-slate-300"
+              }`}
+              style={{
+                backgroundColor: isCorrect ? accent : undefined,
+                boxShadow: "0 1px 0 rgba(0,0,0,0.02)",
+              }}
+            >
+              {c.label}
+            </button>
+          );
+        })}
       </div>
-      {explanation && (
-        <p className="text-center text-xs mt-4 text-slate-500">{explanation}</p>
-      )}
     </div>
   );
 }
@@ -735,9 +831,11 @@ function ChoiceCard({
 function RiddleCard({
   onCorrect,
   onWrong,
+  uiLocked,
 }: {
   onCorrect: (msg: string) => void;
   onWrong: () => void;
+  uiLocked: boolean;
 }) {
   const [val, setVal] = useState("");
   const isCorrect = /monday/i.test(val.trim());
@@ -756,15 +854,17 @@ function RiddleCard({
       </p>
       <div className="mt-4 flex gap-2">
         <input
-          className="input flex-1 p-1 border rounded"
+          className="input flex-1 p-2 border rounded"
           placeholder="Type your answer"
           value={val}
           onChange={(e) => setVal(e.target.value)}
+          disabled={uiLocked}
         />
         <Primary
           onClick={() =>
             isCorrect ? onCorrect("Correct — Monday blues it is!") : onWrong()
           }
+          disabled={uiLocked}
         >
           Submit
         </Primary>
@@ -776,12 +876,14 @@ function RiddleCard({
 function FindRedCard({
   onCorrect,
   onWrong,
+  uiLocked,
 }: {
   onCorrect: (msg: string) => void;
   onWrong: () => void;
+  uiLocked: boolean;
 }) {
   const [val, setVal] = useState("");
-  const ok = /(^|\b)lamp(s)?(\b|$)/i.test(val.trim()); // accept lamp / lamps
+  const ok = /(^|\b)lamp(s)?(\b|$)/i.test(val.trim());
   return (
     <div>
       <h2
@@ -796,10 +898,11 @@ function FindRedCard({
       </p>
       <div className="mt-4 flex gap-2">
         <input
-          className="input flex-1 p-1 border rounded"
+          className="input flex-1 p-2 border rounded"
           placeholder="What is the red object? (hint: 4 letters)"
           value={val}
           onChange={(e) => setVal(e.target.value)}
+          disabled={uiLocked}
         />
         <Primary
           onClick={() =>
@@ -807,6 +910,7 @@ function FindRedCard({
               ? onCorrect("Nice spot — a lamp literally lights things up!")
               : onWrong()
           }
+          disabled={uiLocked}
         >
           Submit
         </Primary>
@@ -815,7 +919,15 @@ function FindRedCard({
   );
 }
 
-function FortuneCookie({ text, onDone }: { text: string; onDone: () => void }) {
+function FortuneCookie({
+  text,
+  onDone,
+  uiLocked,
+}: {
+  text: string;
+  onDone: () => void;
+  uiLocked: boolean;
+}) {
   const [cracked, setCracked] = useState(false);
   const [revealed, setRevealed] = useState(false);
   const crackNow = () => setCracked(true);
@@ -832,23 +944,24 @@ function FortuneCookie({ text, onDone }: { text: string; onDone: () => void }) {
       >
         Fortune Cookie
       </h2>
+      <p>You have unlocked a fortune cookie </p>
       <div className="mt-6 flex items-center justify-center">
         <div
           className="relative w-56 h-40 cursor-pointer select-none"
           role="button"
           aria-label="Fortune cookie"
           tabIndex={0}
-          onClick={crackNow}
+          onClick={() => !uiLocked && crackNow()}
           onKeyDown={(e) => {
+            if (uiLocked) return;
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
               crackNow();
             }
           }}
           data-testid="fortune-cookie-graphic"
-          style={{ marginBottom: 16 }}
+          style={{ marginBottom: 16, opacity: uiLocked ? 0.6 : 1 }}
         >
-          {/* halves */}
           <motion.div
             className="absolute inset-y-0 left-0 w-1/2"
             initial={{ rotate: 0, x: 0 }}
@@ -866,7 +979,6 @@ function FortuneCookie({ text, onDone }: { text: string; onDone: () => void }) {
             <CookieHalf side="right" />
           </motion.div>
 
-          {/* hint icon */}
           <AnimatePresence>
             {!cracked && (
               <motion.div
@@ -881,7 +993,6 @@ function FortuneCookie({ text, onDone }: { text: string; onDone: () => void }) {
             )}
           </AnimatePresence>
 
-          {/* fortune strip */}
           <motion.div
             className="absolute left-1/2 -translate-x-1/2 top-1/2"
             initial={{ y: 0, opacity: 0 }}
@@ -897,15 +1008,19 @@ function FortuneCookie({ text, onDone }: { text: string; onDone: () => void }) {
       </div>
 
       {!cracked ? (
-        <Primary data-testid="fortune-crack" onClick={crackNow}>
+        <Primary
+          data-testid="fortune-crack"
+          onClick={crackNow}
+          disabled={uiLocked}
+        >
           Crack the cookie
         </Primary>
       ) : (
         <Primary
           data-testid="fortune-next"
           onClick={onDone}
-          disabled={!revealed}
-          aria-disabled={!revealed}
+          disabled={!revealed || uiLocked}
+          aria-disabled={!revealed || uiLocked}
           className="disabled:opacity-60 my-10"
         >
           Next
@@ -924,6 +1039,118 @@ function CookieHalf({ side }: { side: "left" | "right" }) {
   );
 }
 
+/* NEW: Crack the Code screen */
+function CrackSafeCard({
+  onUnlock,
+  onWrong,
+  uiLocked,
+}: {
+  onUnlock: () => void;
+  onWrong: () => void;
+  uiLocked: boolean;
+}) {
+  const TARGET = ["0", "3", "4", "9"];
+  const [d, setD] = useState<string[]>(["", "", "", ""]);
+  const refs = [
+    useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null),
+  ];
+
+  const setDigit = (i: number, val: string) => {
+    if (uiLocked) return;
+    const v = val.replace(/\D/g, "").slice(-1); // only last digit
+    const next = [...d];
+    next[i] = v;
+    setD(next);
+    if (v && i < 3) refs[i + 1].current?.focus();
+  };
+
+  const onKeyDown = (i: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (uiLocked) {
+      e.preventDefault();
+      return;
+    }
+    if (e.key === "Backspace" && !d[i] && i > 0) {
+      refs[i - 1].current?.focus();
+    }
+    if (e.key === "ArrowLeft" && i > 0) refs[i - 1].current?.focus();
+    if (e.key === "ArrowRight" && i < 3) refs[i + 1].current?.focus();
+    if (e.key === "Enter") submit();
+  };
+
+  const submit = () => {
+    if (uiLocked) return;
+    if (d.join("").length < 4) {
+      onWrong();
+      return;
+    }
+    if (d.join("") === TARGET.join("")) {
+      onUnlock();
+    } else {
+      onWrong();
+    }
+  };
+
+  useEffect(() => {
+    refs[0].current?.focus();
+  }, []);
+
+  return (
+    <div className="text-center">
+      <h2
+        className="text-2xl md:text-3xl font-semibold"
+        style={{ color: ACCENT }}
+      >
+        Crack the Code
+      </h2>
+      <p className="mt-3 text-slate-600">
+        Your reward is securely locked in a safe. Crack the 4-digit pin to open
+        it.
+      </p>
+
+      <div className="mt-6 flex items-center justify-center">
+        <SafeImage src="/safer.png" alt="Safe" width={160} height={120} />
+      </div>
+      <div className="mt-6 flex items-center justify-center gap-3">
+        {d.map((val, i) => (
+          <input
+            key={i}
+            ref={refs[i]}
+            inputMode="numeric"
+            pattern="\d*"
+            maxLength={1}
+            value={val}
+            onChange={(e) => setDigit(i, e.target.value)}
+            onKeyDown={(e) => onKeyDown(i, e)}
+            disabled={uiLocked}
+            className="w-12 h-12 text-center text-xl border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2"
+            style={{ borderColor: uiLocked ? "#cbd5e1" : undefined }}
+          />
+        ))}
+      </div>
+
+      <Primary className="mt-4" onClick={submit} disabled={uiLocked}>
+        Unlock
+      </Primary>
+
+      <div className="mt-6 text-left max-w-sm mx-auto text-slate-600 text-sm">
+        <div className="font-medium mb-2" style={{ color: ACCENT }}>
+          Hints
+        </div>
+        <ul className="list-disc pl-5 space-y-1">
+          <li>First digit — Aryabhata’s big idea.</li>
+          <li>Second digit — number of “Idiots” in the famous film.</li>
+          <li>Third digit — sides of a square.</li>
+          <li>Fourth digit — a cat’s lives.</li>
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+/* Toast inside main */
 function Toast({
   message,
   onClear,
@@ -951,16 +1178,14 @@ function Toast({
 
   return (
     <div
-      className={`fixed bottom-6 left-1/2 -translate-x-1/2 ${toneClass} text-white text-sm px-3 py-2 rounded-lg shadow-lg/20`}
+      className={`absolute bottom-4 left-1/2 -translate-x-1/2 ${toneClass} text-white text-sm px-3 py-2 rounded-lg shadow-lg/20 max-w-[90%] text-center`}
     >
       {message}
     </div>
   );
 }
 
-/* ────────────────────────────────────────────────────────────────────────────
- * Footer / Buttons are below
- * ──────────────────────────────────────────────────────────────────────────── */
+/* Footer / Buttons are below */
 
 function Ending() {
   return (
