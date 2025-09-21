@@ -596,7 +596,7 @@ export default function Page() {
           </motion.h1>
           <p className="mt-5 max-w-2xl text-slate-600">
             A considered selection of regional Thai classics. Scroll at your
-            leisure. When you've taken it all in, something special unlocks.
+            leisure. When you have taken it all in, something special unlocks.
           </p>
         </div>
       </section>
