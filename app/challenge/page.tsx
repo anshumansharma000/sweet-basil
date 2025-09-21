@@ -630,7 +630,7 @@ export default function ChallengePage() {
                   onClick={() => (window.location.href = "/challenge")}
                   disabled={uiLocked}
                 >
-                  Back to Menu
+                  Back to Start
                 </Button>
               </div>
             )}
