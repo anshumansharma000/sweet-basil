@@ -181,10 +181,10 @@ export default function ChallengePage() {
             .then(() => setIsPlaying(true))
             .catch(() => {});
         }
-      }, 5000);
+      }, 9000);
 
-      const controlsTimer = setTimeout(() => setShowControls(true), 7000);
-      const foundBtnTimer = setTimeout(() => setShowFoundBtn(true), 15000);
+      const controlsTimer = setTimeout(() => setShowControls(true), 11000);
+      const foundBtnTimer = setTimeout(() => setShowFoundBtn(true), 18000);
 
       return () => {
         clearTimeout(playTimer);
