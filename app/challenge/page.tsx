@@ -152,7 +152,7 @@ export default function ChallengePage() {
     custom?: string;
   }) => {
     const { explanation, stepId, selectedLabel, custom } = opts;
-    let msg =
+    const msg =
       explanation?.trim() ||
       custom?.trim() ||
       (stepId && selectedLabel && FACTS[stepId]?.[selectedLabel]) ||
