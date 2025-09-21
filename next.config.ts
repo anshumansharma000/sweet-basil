@@ -2,7 +2,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  distDir: "build", // 👈 output folder instead of default .next
+  // distDir: "build", // 👈 output folder instead of default .next
   // add other config options here
 };
 
